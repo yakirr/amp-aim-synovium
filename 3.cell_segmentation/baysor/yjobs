@@ -1,0 +1,32 @@
+#!/bin/bash
+
+[ -f ~/.starttime ] && STARTTIME=$(< ~/.starttime)
+
+if [ -z "$STARTTIME" ]; then
+	STARTTIME="now-12hours"
+fi
+ENDTIME="now"
+OPTIONS="--starttime=$STARTTIME --endtime=$ENDTIME --allocations"
+
+echo "pending: $(squeue -u $USER -t PENDING --array | tail -n +2 | wc -l)"
+echo "running: $(squeue -u $USER -t RUNNING | tail -n +2 | wc -l)"
+echo "finished: $(squeue -u $USER -t COMPLETED | tail -n +2 | wc -l)"
+echo ""
+echo "between $STARTTIME and $ENDTIME:"
+STATES="completed"
+echo "finished: $(sacct --state=$STATES $OPTIONS | tail -n +3 | wc -l)"
+STATES="cancelled"
+echo "cancelled: $(sacct --state=$STATES $OPTIONS | tail -n +3 | wc -l)"
+STATES="failed,out_of_memory,timeout,boot_fail,failed,node_fail"
+echo "crashed: $(sacct --state=$STATES $OPTIONS | tail -n +3 | wc -l)"
+
+echo "==="
+sacct $OPTIONS --format=JobID,JobName%50,State,ExitCode | \
+	grep -v "COMPLETED" | \
+	grep -v "RUNNING" | \
+	grep -v "PENDING" | \
+	grep -v "CANCELLED" | \
+	grep -v "\-\-\-\-"
+
+echo "==="
+sshare -u $USER -U | grep -v "\-\-\-\-"
