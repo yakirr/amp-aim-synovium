@@ -66,3 +66,4 @@ rsconnect/
 3.cell_segmentation/slurm_logs/
 3.cell_segmentation/_old_edp1only/
 3.cell_segmentation/baysor/baysor_package/
+*scatch*.ipynb
