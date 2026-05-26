@@ -77,11 +77,14 @@ cbind2_fill <- function(mat_list) {
 
 t0 <- Sys.time()
 sids <- unique(metadata$Sample_ID)
+n_sids <- length(sids)
 fov_list <- list()
 
-for (sid in sids) {
+for (sid_i in seq_along(sids)) {
+  sid <- sids[[sid_i]]
   cohort <- metadata[metadata$Sample_ID == sid]$cohort[[1]]
-  cat("\nProcessing sample:", sid, cohort, "\n")
+  t_sample_start <- Sys.time()
+  cat(sprintf("\n[Sample %d/%d] %s %s\n", sid_i, n_sids, sid, cohort))
   flush.console()
 
   pattern <- file.path("out", sid, "baysor_out", "*", "segmentation_counts.tsv")
@@ -110,6 +113,16 @@ for (sid in sids) {
     cat(sprintf("(%.1f sec)\n", elapsed))
     flush.console()
   }
+
+  # Per-sample timing and ETA
+  t_sample_end <- Sys.time()
+  secs_this_sample <- as.numeric(difftime(t_sample_end, t_sample_start, units = "secs"))
+  secs_elapsed_total <- as.numeric(difftime(t_sample_end, t0, units = "secs"))
+  secs_per_sample <- secs_elapsed_total / sid_i
+  secs_remaining <- secs_per_sample * (n_sids - sid_i)
+  cat(sprintf("  -> Sample done in %.1f sec | avg %.1f sec/sample | est. %.1f sec remaining (%.1f min)\n",
+              secs_this_sample, secs_per_sample, secs_remaining, secs_remaining / 60))
+  flush.console()
 }
 
 cat("Concatenating FOV matrices...\n")
@@ -131,9 +144,11 @@ cat("Seurat object saved to out_rds/allcells.rds\n")
 
 t0 <- Sys.time()
 
-for (sid in sids) {
+for (sid_i in seq_along(sids)) {
+  sid <- sids[[sid_i]]
   cohort <- metadata[metadata$Sample_ID == sid, ]$cohort[[1]]
-  cat("\nProcessing sample:", sid, cohort, "\n")
+  t_sample_start <- Sys.time()
+  cat(sprintf("\n[Sample %d/%d] %s %s\n", sid_i, n_sids, sid, cohort))
   flush.console()
 
   pattern <- file.path("out", sid, "baysor_out", "*", "segmentation_cell_stats.csv")
@@ -180,6 +195,16 @@ for (sid in sids) {
     cat(sprintf("(%.1f sec)\n", elapsed))
     flush.console()
   }
+
+  # Per-sample timing and ETA
+  t_sample_end <- Sys.time()
+  secs_this_sample <- as.numeric(difftime(t_sample_end, t_sample_start, units = "secs"))
+  secs_elapsed_total <- as.numeric(difftime(t_sample_end, t0, units = "secs"))
+  secs_per_sample <- secs_elapsed_total / sid_i
+  secs_remaining <- secs_per_sample * (n_sids - sid_i)
+  cat(sprintf("  -> Sample done in %.1f sec | avg %.1f sec/sample | est. %.1f sec remaining (%.1f min)\n",
+              secs_this_sample, secs_per_sample, secs_remaining, secs_remaining / 60))
+  flush.console()
 }
 
 cat("Writing final output...\n")

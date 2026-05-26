@@ -2,9 +2,9 @@
 #SBATCH --job-name=combine_cells
 #SBATCH --output=slurm_logs/combine_cells_%j.out
 #SBATCH --error=slurm_logs/combine_cells_%j.err
-#SBATCH --partition=bigmem
-#SBATCH --time=24:00:00
-#SBATCH --mem=96G
+#SBATCH --partition=long
+#SBATCH --time=3-00:00:00
+#SBATCH --mem=200G
 #SBATCH --cpus-per-task=1
 #SBATCH --nodes=1
 
@@ -16,6 +16,7 @@ echo "Running on node: $(hostname)"
 echo "Working directory: $(pwd)"
 
 echo "Loading R env"
+source ~/anaconda3/etc/profile.d/conda.sh
 conda activate r2026
 
 echo "running script"
