@@ -55,4 +55,4 @@ rsconnect/
 *.pdf
 *.csv
 slurm_logs/
-
+.ipynb_checkpoints/
