@@ -47,3 +47,12 @@ po/*~
 
 # RStudio Connect folder
 rsconnect/
+
+*.rds
+*.parquet
+*.tar.gz
+*.tsv
+*.pdf
+*.csv
+slurm_logs/
+
