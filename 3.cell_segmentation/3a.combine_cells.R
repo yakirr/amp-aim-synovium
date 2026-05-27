@@ -106,7 +106,7 @@ for (sid_i in seq_along(sids)) {
     mat_sparse <- Matrix(as.matrix(df[, -1]), sparse = TRUE)
 
     rownames(mat_sparse) <- gene_names
-    colnames(mat_sparse) <- paste0(cell_ids, "_", sid)
+    colnames(mat_sparse) <- paste0(cell_ids, ":", sid)
     fov_list[[cf]] <- mat_sparse
 
     elapsed <- as.numeric(difftime(Sys.time(), t0, units = "secs"))
@@ -130,9 +130,15 @@ flush.console()
 big <- cbind2_fill(fov_list)
 big <- Seurat::CreateSeuratObject(
   counts = big,
-  project = cohort
+  project = "NA"
 )
-big[["sid"]] <- sub(".*_", "", rownames(big[[]]))
+big[["sid"]] <- sub(".*:", "", rownames(big[[]]))
+
+cat("Sprucing up metdata...\n")
+cols <- c("subset", "cohort")
+big@meta.data[cols] <- metadata[match(big@meta.data$sid, metadata$Sample_ID), ..cols]
+big@meta.data[c("donor","donor_visit")] <- metadata[match(big@meta.data$sid, metadata$Sample_ID), c("Subject_ID","Subject-Visit_ID")]
+big@meta.data$orig.ident <- NULL
 
 dir.create("out_rds", showWarnings = FALSE)
 saveRDS(big, file = "out_rds/allcells.rds")

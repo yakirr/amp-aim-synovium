@@ -115,8 +115,8 @@ BuildReference <- function(
     sc, 
     hvgs, 
     batch_vars = NULL, 
-    annotation_var, 
-    cca_weights = NULL
+    annotation_var = NULL, 
+    cca_scores = NULL
     ) {
 
     logmsg("\n[1/4] Finding HVGs, normalizing, and standardizing...")
@@ -131,10 +131,19 @@ BuildReference <- function(
     logmsg("\n[2/4] Running dimensional reduction...")
     
     set.seed(0)
-    sc <- RunPCA(sc, features = hvgs, verbose = TRUE)
-    reduction_for_harmony <- "pca"
+    if (is.null(cca_scores)) {
+        sc <- RunPCA(sc, features = hvgs, verbose = TRUE)
+        reduction_for_harmony <- "pca"
+    } else {
+        sc[['cca']] <- CreateDimReducObject(
+            embeddings = cca_scores,
+            key = 'CCA_',
+            assay = 'RNA'
+            )
+        reduction_for_harmony <- 'cca'
+    }
     
-    logmsg("  Printing PCA diagnostic plots...")
+    logmsg(paste0("  Printing ", reduction_for_harmony, " diagnostic plots..."))
     #TODO fix plotting issue with last plot
     print(DimPlot(sc, reduction = reduction_for_harmony, group.by = "sid") + NoLegend())
     #print(DimPlot(merged, reduction = reduction_for_harmony, group.by = annotation_var) + NoLegend())
