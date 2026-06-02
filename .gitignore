@@ -63,7 +63,9 @@ rsconnect/
 3.cell_segmentation/out/
 3.cell_segmentation/out_rds/
 3.cell_segmentation/level3/
-3.cell_segmentation/slurm_logs/
 3.cell_segmentation/_old_edp1only/
 3.cell_segmentation/baysor/baysor_package/
 *scratch*.ipynb
+_unused/
+slurm_logs/
+4.lineages/diagnostic_plots/
