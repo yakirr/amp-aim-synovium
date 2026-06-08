@@ -1,0 +1,3 @@
+{"ct":"Macrophage","lineage":"Myeloid","xen_path":"/data/srlab/AMP_collab/lakshay-yakir/5.coarse_types/out_rds//EDP1-EDP2-ARB/Myeloid/Macrophage/Macrophage_allcells_coarsetypes.rds","cohort":"EDP1-EDP2-ARB","cca_path":"","batch_vars":"cohort"}
+{"ct":"Lining","lineage":"Stromal","xen_path":"/data/srlab/AMP_collab/lakshay-yakir/5.coarse_types/out_rds//EDP1-EDP2-ARB/Stromal/Lining/Lining_allcells_coarsetypes.rds","cohort":"EDP1-EDP2-ARB","cca_path":"","batch_vars":"cohort"}
+{"ct":"Sublining","lineage":"Stromal","xen_path":"/data/srlab/AMP_collab/lakshay-yakir/5.coarse_types/out_rds//EDP1-EDP2-ARB/Stromal/Sublining/Sublining_allcells_coarsetypes.rds","cohort":"EDP1-EDP2-ARB","cca_path":"","batch_vars":"cohort"}

@@ -1,0 +1,63 @@
+#!/bin/bash
+function reconstruct_full_ct_obj()
+{
+    local lineage=$1
+    local cohort=$2
+
+    obj_dir="/data/srlab/AMP_collab/lakshay-yakir/5.coarse_types/out_rds/${cohort}/${lineage}"
+    filesize=$(du -sb $obj_dir | cut -f1)
+    local mb=$((filesize / 1024 / 1024)) 
+
+    if [ $mb -lt 2000 ]; then
+	mem="30G"
+	time="00:30:00"
+    elif [ $mb -lt 5000 ]; then 
+        mem="40G"
+	time="01:00:00"
+    elif [ $mb -lt 10000 ]; then 
+	mem="50G"
+	time="01:00:00"
+    elif [ $mb -lt 20000 ]; then 
+	mem="75G"
+	time="01:00:00"
+    else 
+	mem="100G"
+	time="02:00:00"
+    fi
+
+    if [ "$CONDA_DEFAULT_ENV" != "amp_harmony" ]; then
+   	echo "ERROR: wrong conda environment. Expected 'amp_harmony', got '$CONDA_DEFAULT_ENV'"
+    	exit 1
+    fi
+
+cat << EOF | sbatch
+#!/bin/bash
+#SBATCH -D /data/srlab/AMP_collab/lakshay-yakir/5.coarse_types/ 
+#SBATCH -o /data/srlab/AMP_collab/lakshay-yakir/5.coarse_types/slurm_logs/${cohort}_${lineage}_combinecelltypes.out
+#SBATCH -e /data/srlab/AMP_collab/lakshay-yakir/5.coarse_types/slurm_logs/${cohort}_${lineage}_combinecelltypes.err 
+#SBATCH -J ${cohort}_${lineage}_combinecelltypes
+#SBATCH --time=${time}
+#SBATCH --mem=${mem}
+#SBATCH -c 1
+#SBATCH -p normal,bigmem,long
+#SBATCH --mail-type=end
+#SBATCH --mail-user=$EMAIL
+# ------------------------- End of Header ------------------------- #
+
+#source activate /data/srlab/lsood/miniforge3/envs/amp_harmony 
+echo "$lineage" 
+echo "${mb} MB"
+echo "$mem"
+echo "$time"
+
+Rscript ./3.combine_coarsetype_chunks.r "$lineage" "EDP1-EDP2-ARB" 
+
+EOF
+}
+
+lineages=("B_plasma" "Myeloid" "Stromal" "T_NK" "Endothelial")
+#lineages=("B_plasma")
+for lineage in ${lineages[@]}; do 
+	reconstruct_full_ct_obj "$lineage" "EDP1-EDP2-ARB"
+done
+

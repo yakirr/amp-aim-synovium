@@ -1,0 +1,5 @@
+{"lineage":"B_plasma","cohort":"EDP1-EDP2-ARB","max_mult":1.25}
+{"lineage":"Endothelial","cohort":"EDP1-EDP2-ARB","max_mult":1.25}
+{"lineage":"Myeloid","cohort":"EDP1-EDP2-ARB","max_mult":1.25}
+{"lineage":"Stromal","cohort":"EDP1-EDP2-ARB","max_mult":1.25}
+{"lineage":"T_NK","cohort":"EDP1-EDP2-ARB","max_mult":1.25}

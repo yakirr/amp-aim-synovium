@@ -68,4 +68,6 @@ rsconnect/
 *scratch*.ipynb
 _unused/
 slurm_logs/
-4.lineages/diagnostic_plots/
+diagnostic_plots/
+out_analysis/
+out_ccaweights/
