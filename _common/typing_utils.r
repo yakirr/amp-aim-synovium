@@ -41,12 +41,13 @@ Run_uwot_umap <- function(SeuratObj, reduction = 'harmony', min_dist = 0.01, spr
 }
 
 transfer_labels_graph <- function(graph, query_mask, ref_mask, labels, 
-                                  unweighted = FALSE, min_ratio = 1.1) {
+                                  unweighted = FALSE, min_ratio = 1.1, min_sc_neighbors = 0) {
   # graph: adjacency matrix (cells x cells)
   # query_mask: boolean mask specifying query cells
   # ref_mask: boolean mask specifying reference cells
   # labels: vector of cell type labels
   # unweighted: if TRUE, convert graph to unweighted (majority vote)
+  # TODO: check impact of increasing/decreasing required # of AMPp2 neighbors  
 
   library(Matrix)
 
@@ -74,7 +75,7 @@ transfer_labels_graph <- function(graph, query_mask, ref_mask, labels,
 
   # Assign label with most votes, requiring separation from runner-up
   transferred <- apply(vote_counts, 1, function(v) {
-    if (all(v == 0)) return(NA_character_)
+    if (sum(v > 0) < min_sc_neighbors) return(NA_character_)
   
     ord <- order(v, decreasing = TRUE)
     top1 <- v[ord[1]]
@@ -303,6 +304,7 @@ BuildIntegratedReference <- function(
     
     logmsg("  Printing PCA diagnostic plots...")
     #TODO fix plotting issue with last plot
+    
     print(DimPlot(merged, reduction = reduction_for_harmony, group.by = "modality") + NoLegend())
     print(DimPlot(merged, reduction = reduction_for_harmony, group.by = "sid") + NoLegend())
     #print(DimPlot(merged, reduction = reduction_for_harmony, group.by = annotation_var) + NoLegend())
@@ -340,7 +342,7 @@ ShowTransferDiagnostics <- function(
     merged,
     annotation_var,
     genes_to_visualize = c("KLRD1", "GNLY", "KLRF1"), 
-    save_plot = NULL # this should be a file path if not null  
+    save_path = NULL # this should be a file path if not null  
 ) {
     p1 <- DimPlot(merged, reduction = "humap", group.by = "modality", raster = TRUE, shuffle = TRUE) + NoAxes() + small_theme
     p2 <- DimPlot(
@@ -379,12 +381,12 @@ ShowTransferDiagnostics <- function(
         logmsg("  No requested genes were found, so skipping FeaturePlot.")
     }
     
-    if (!(is.null(save_plot))) {
+    if (!(is.null(save_path))) {
         if (length(genes_present) > 0) {
             p123 <- (p1 + p2) / p3
-            ggplot2::ggsave(save_plot, p123, width = 20, height = 20, dpi = 150)
+            ggplot2::ggsave(save_path, p123, width = 20, height = 20, dpi = 150)
         } else {
-            ggplot2::ggsave(save_plot, p12, width = 20, height = 10, dpi = 150)
+            ggplot2::ggsave(save_path, p12, width = 20, height = 10, dpi = 150)
         }
     
     }
@@ -392,16 +394,17 @@ ShowTransferDiagnostics <- function(
     invisible(NULL)
 }
 
-
-
-
-TransferLabelsGraph <- function(
+TransferLabelsGraph_old <- function(
     merged,
     annotation_var,
     graph = NULL,
     n_neighbors = 30,
     min_ratio = 1.1,
-    raster = FALSE 
+    compute_all_xen_umap = FALSE,
+    save_all_xen_umap_path = NULL, 
+    unweighted = FALSE, 
+    raster = FALSE, 
+    save_path = NULL 
 ) {
     logmsg("\n[1/4] Checking inputs...")
     if (!"harmony" %in% names(merged@reductions)) {
@@ -474,7 +477,158 @@ TransferLabelsGraph <- function(
     f12 <- tempfile(fileext = ".png")
     ggplot2::ggsave(f12, p12, width = 12, height = 5, dpi = 150)
     IRdisplay::display_png(file = f12)
+    
+    if (!(is.null(save_path))) {
+        ggplot2::ggsave(save_path, p12, width = 20, height = 10, dpi = 150)
+    }
+    
+    if (compute_all_xen_umap) {
+        xen <- subset(merged, cells = colnames(merged)[merged$modality == 'xen'])
+        logmsg("\n[5/4] Computing whole-Xenium UMAP from Harmony embedding...")
+            set.seed(0)
+            umap_with_graph <- uwot::umap(
+                xen@reductions$harmony@cell.embeddings,
+                n_neighbors = n_neighbors,
+                spread = 0.8,
+                min_dist = 0.3,
+                ret_extra = "fgraph",
+                fast_sgd = FALSE
+            )
+        logmsg("  whole-Xenium Graph computation complete.")
+        saveRDS(xen, save_all_xen_umap_path)
+    }
 
+    return(merged)
+}
+
+TransferLabelsGraph_new <- function(
+    merged,
+    annotation_var,
+    graph = NULL,
+    n_neighbors = 30,
+    min_ratio = 1.1,
+    min_sc_neighbors = 0, #TODO: check impact of increasing/decreasing required # of AMPp2 neighbors 
+    max_mult = 4, # How much larger the Xenium dataset can be than the reference dataset, expressed as a multiple of the size of the reference data, 
+    compute_all_xen_umap = FALSE,
+    save_all_xen_umap_path = NULL, 
+    unweighted = FALSE, 
+    raster = FALSE, 
+    save_path = NULL 
+) {
+    logmsg("\n[1/4] Checking inputs...")
+    if (!"harmony" %in% names(merged@reductions)) {
+        stop("The merged object does not contain a 'harmony' reduction.")
+    }
+    if (!annotation_var %in% colnames(merged@meta.data)) {
+        stop("annotation_var not found in merged@meta.data: ", annotation_var)
+    }
+    if (!all(c("xen", "sc") %in% unique(merged$modality))) {
+        stop("merged$modality must contain both 'xen' and 'sc'.")
+    }
+    logmsg("  Using annotation variable:", annotation_var)
+    
+    transferred_labels = setNames(character(sum(merged$modality == 'xen')), colnames(merged)[merged$modality == 'xen'])
+    
+    sc_cells = which(merged$modality == 'sc')
+    while (sum(transferred_labels == "", na.rm = TRUE) > 0) {
+        untyped_cells = which(transferred_labels == "")
+        num_iters = ceiling(length(untyped_cells) / (max_mult * length(sc_cells)))
+
+        if (num_iters > 1) {
+            sampled_cells = sample(untyped_cells, size = max_mult * length(sc_cells))
+        } else {
+            sampled_cells = untyped_cells
+        }
+        
+        logmsg(paste('There are', length(untyped_cells), 'remaining Xenium cells to type'))
+        logmsg(paste('This will require', num_iters, 'remaining iterations of label transfer'))
+        
+        merged_sub = subset(merged, cells = colnames(merged)[c(sampled_cells, sc_cells)])
+            
+        if(is.null(graph)) {
+            logmsg("  Using n_neighbors =", n_neighbors, "and min_ratio =", min_ratio)
+            logmsg("\n[2/4] Computing nearest-neighbor graph from Harmony embedding...")
+            set.seed(0)
+            umap_with_graph <- uwot::umap(
+                merged_sub@reductions$harmony@cell.embeddings,
+                n_neighbors = n_neighbors,
+                spread = 0.8,
+                min_dist = 0.3,
+                ret_extra = "fgraph",
+                fast_sgd = FALSE
+            )
+            logmsg("  Graph computation complete.")
+            graph_provided <- umap_with_graph$fgraph
+        } else {
+            graph_provided <- graph
+            logmsg("\n[2/4] Skipping NNG construction since graph is provided...")
+        }
+    
+        logmsg("\n[3/4] Transferring labels from sc cells to xen cells...")
+
+        query_mask <- merged_sub$modality == "xen"
+        ref_mask   <- merged_sub$modality == "sc"
+        transferred_labels_sub <- transfer_labels_graph(
+            graph = graph_provided,
+            query_mask = query_mask,
+            ref_mask = ref_mask,
+            labels = merged_sub[[annotation_var]][, 1],
+            min_ratio = min_ratio
+        )
+        transferred_labels[sampled_cells] = transferred_labels_sub 
+    }
+
+    merged@meta.data[merged$modality == 'xen', annotation_var] <- transferred_labels
+    logmsg("  Labels written to:", annotation_var)
+    logmsg("  Xen cells without transferred labels:", sum(is.na(transferred_labels)))
+
+    logmsg("\n[4/4] Plotting unlabeled cells and final xen label map...")
+    cells_na <- colnames(merged)[
+        merged$modality == "xen" & is.na(merged[[annotation_var]][, 1])
+    ]
+    merged@meta.data[colnames(merged) %in% cells_na, annotation_var] <- 'Unknown'
+    p1 <-
+        DimPlot(
+            merged,
+            reduction = "humap",
+            cells.highlight = list("Unlabelled" = cells_na),
+            cols.highlight = scales::alpha("red", 0.01),
+            cols = "grey85",
+            shuffle = TRUE, 
+            raster = raster
+        ) + NoAxes() + small_theme
+    p2 <-
+        DimPlot(
+            subset(merged, subset = modality == "xen"),
+            reduction = "humap",
+            group.by = annotation_var,
+            na.value = "grey80", 
+            raster = FALSE
+        ) + NoAxes() + small_theme
+    p12 <- p1 + p2
+    f12 <- tempfile(fileext = ".png")
+    ggplot2::ggsave(f12, p12, width = 12, height = 5, dpi = 150)
+    IRdisplay::display_png(file = f12)
+    
+    if (!(is.null(save_path))) {
+        ggplot2::ggsave(save_path, p12, width = 20, height = 10, dpi = 150)
+    }
+    
+    if (compute_all_xen_umap) {
+        xen <- subset(merged, cells = colnames(merged)[merged$modality == 'xen'])
+        logmsg("\n[5/4] Computing whole-Xenium UMAP from Harmony embedding...")
+            set.seed(0)
+            umap_with_graph <- uwot::umap(
+                xen@reductions$harmony@cell.embeddings,
+                n_neighbors = n_neighbors,
+                spread = 0.8,
+                min_dist = 0.3,
+                ret_extra = "fgraph",
+                fast_sgd = FALSE
+            )
+        logmsg("  whole-Xenium Graph computation complete.")
+        saveRDS(xen, save_all_xen_umap_path)
+    }
     return(merged)
 }
 
@@ -494,27 +648,8 @@ ShowClusterMarkers <- function(xen, celltype_var, n_show = 30) {
     return(show[1:n_show, ])
 }
 
-CompareMarkerCorrelations <- function(xen, sc, celltype_var, bicluster = FALSE, markers.xen = NULL, markers.sc = NULL,
-                                      hvgs_only = FALSE, pheatmap_breaks = NULL, fontsize = 12, show = TRUE) {
-  # make markers
-  hvgs <- rownames(xen[['RNA']]$scale.data)
-  if(is.null(markers.xen)) { 
-    expr <- GetAssayData(xen, layer = "data")
-    if (hvgs_only) {
-        expr <- expr[hvgs, ]
-    }
-    markers.xen <- presto::wilcoxauc(expr, xen[[celltype_var]][, 1])
-  }
-  if(is.null(markers.sc)) { 
-    expr <- GetAssayData(sc, layer = "data")
-    if (hvgs_only) {
-        expr <- expr[hvgs, ]
-    }
-    markers.sc <- presto::wilcoxauc(expr, sc[[celltype_var]][, 1])
-  }
-
-  # helper: convert marker table to gene x cluster matrix
-  marker_table_to_mat <- function(markers, group_col = "group", feature_col = "feature", value_col = "logFC") {
+# helper: convert marker table to gene x cluster matrix
+marker_table_to_mat <- function(markers, group_col = "group", feature_col = "feature", value_col = "logFC") {
     markers %>%
       dplyr::select(
         group = all_of(group_col),
@@ -532,6 +667,26 @@ CompareMarkerCorrelations <- function(xen, sc, celltype_var, bicluster = FALSE, 
     rownames(df) <- df$feature
     df$feature <- NULL
     as.matrix(df)
+}
+
+CompareMarkerCorrelations <- function(xen, sc, celltype_var, bicluster = FALSE, markers.xen = NULL, markers.sc = NULL,
+                                      hvgs_only = FALSE, pheatmap_breaks = NULL, fontsize = 12, show = TRUE, 
+                                      save_path = NULL) {
+  # make markers
+  hvgs <- rownames(xen[['RNA']]$scale.data)
+  if(is.null(markers.xen)) { 
+    expr <- GetAssayData(xen, layer = "data")
+    if (hvgs_only) {
+        expr <- expr[hvgs, ]
+    }
+    markers.xen <- presto::wilcoxauc(expr, xen[[celltype_var]][, 1])
+  }
+  if(is.null(markers.sc)) { 
+    expr <- GetAssayData(sc, layer = "data")
+    if (hvgs_only) {
+        expr <- expr[hvgs, ]
+    }
+    markers.sc <- presto::wilcoxauc(expr, sc[[celltype_var]][, 1])
   }
 
   # compare sc to xenium
@@ -582,6 +737,12 @@ CompareMarkerCorrelations <- function(xen, sc, celltype_var, bicluster = FALSE, 
     fig.size(10, 20)
     gridExtra::grid.arrange(p1[[4]], p2[[4]], ncol = 2)
   }
+    
+  if (!is.null(save_path)) {
+    ggplot2::ggsave(save_path, 
+                plot = gridExtra::arrangeGrob(p1[[4]], p2[[4]], ncol = 2),
+                width = 20, height = 10, dpi = 150)
+  }
   
   invisible(list(
     markers.xen = markers.xen,
@@ -602,6 +763,8 @@ AssignClusterLabels <- function(
     leiden_res,
     min_corr, 
     ref_col, 
+    #major_celltype = FALSE, 
+    #rescue_low_correlations = TRUE, 
     hvgs_only = FALSE, 
     ct_marker_genes = NULL, 
     min_ct_marker_score = 0, 
@@ -630,20 +793,61 @@ AssignClusterLabels <- function(
         other_ct_clusters = c()
     }
     
-    cluster_labels = cor_mat %>% 
-        as.data.frame() %>% 
-        rownames_to_column('cluster_id') %>% 
-        pivot_longer(cols = -cluster_id, names_to = 'cell_state', values_to = 'corr') %>% 
-        group_by(cluster_id) %>% 
-        filter(corr == max(corr)) %>% 
-        ungroup() %>% 
-        mutate(cell_state = case_when(
-            !(is.null(ct_marker_genes)) & (cluster_id %in% other_ct_clusters) ~ 'Other cell type', 
-            corr < min_corr ~ 'Correlation too low', 
-            .default = cell_state)) %>% 
-        dplyr::select(-corr) 
+    # helper: automatically assign highest-correlation reference labels to query dataset clusters 
     
-    clusters_failing_correlation = which(cluster_labels$cell_state == 'Correlation too low')
+    cor_mat_to_labels <- function(cor_mat, other_ct_clusters, ct_marker_genes, min_corr) { 
+                               #major_celltype) {
+        labels <- cor_mat %>%
+            as.data.frame() %>%
+            rownames_to_column('cluster_id') %>%
+            pivot_longer(cols = -cluster_id, names_to = 'cell_state', values_to = 'corr') %>%
+            group_by(cluster_id) %>%
+            slice_max(corr, n = 1, with_ties = FALSE) %>%
+            ungroup() %>%
+            mutate(cell_state = case_when(
+                !is.null(ct_marker_genes) & (cluster_id %in% other_ct_clusters) ~ 'Other cell type',
+                corr < min_corr ~ 'Correlation too low',
+                #major_celltype ~ str_split_i(cell_state, "-", 1),
+                .default = cell_state
+            )) 
+        return(labels)
+    }
+    
+    cluster_labels <- cor_mat_to_labels(cor_mat, other_ct_clusters, ct_marker_genes, min_corr) %>% #, major_celltype) %>% 
+            dplyr::select(-corr)
+    # Motivation: If an embedding is over-clustered, each cluster's logFC gene expression profile may look substantially different from the reference. This block computes logFC gene expression profiles per single-cell cell state to rescue Xenium clusters whose gene expression profile matches an individual cell state.
+    #if (rescue_low_correlations) {
+    #    expr <- GetAssayData(sc, layer = "data")
+    #    if (hvgs_only) expr <- expr[hvgs, ]
+
+    #    markers.sc <- presto::wilcoxauc(expr, sc[['cluster_name']][, 1])
+    #    rescue_cor_mat <- cor(pre_collapse$xen_mat, marker_table_to_mat(markers.sc, value_col = 'logFC'),
+    #                          method = "pearson", use = "pairwise.complete.obs")
+
+    #    passing_ids <- cluster_labels %>%
+    #        filter(!(cell_state %in% c('Other cell type', 'Correlation too low'))) %>%
+    #        pull(cluster_id)
+
+    #    rescue_labels <- cor_mat_to_labels(rescue_cor_mat, other_ct_clusters, ct_marker_genes, min_corr,
+    #                                       major_celltype) 
+    #    print(rescue_labels)
+        
+    #    rescue_labels <- rescue_labels %>%
+    #        filter(
+    #            !(cluster_id %in% passing_ids),
+    #            !(cell_state %in% c('Other cell type', 'Correlation too low'))
+    #        ) %>%
+    #        dplyr::select(-corr)
+        
+    #    print(paste0(paste(rescue_labels$cluster_id, collapse=","), ' clusters were rescued by high correlation to an AMPp2 cell state'))
+
+    #    cluster_labels <- cluster_labels %>%
+    #        left_join(rescue_labels %>% rename(rescued_state = cell_state), by = 'cluster_id') %>%
+    #        mutate(cell_state = coalesce(rescued_state, cell_state)) %>%
+    #        select(-rescued_state)
+    #}
+    
+    clusters_failing_correlation = cluster_labels[cluster_labels$cell_state == 'Correlation too low', 'cluster_id'] %>% pull(cluster_id)
     print(paste(paste(clusters_failing_correlation, collapse = ","), "all had low correlations"))
 
     xen$seurat_clusters <- xen@meta.data[[leiden_colname]]
@@ -680,7 +884,6 @@ AssignClusterLabels <- function(
         p2 = res$p2
         ))
 }
-    
 
 PlotStateLogFCComparison <- function(
   markers_sc,
