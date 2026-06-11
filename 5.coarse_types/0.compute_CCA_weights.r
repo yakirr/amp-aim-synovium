@@ -79,8 +79,10 @@ set.seed(0)
 system.time({
     res_cca = cc(t(hvgs), t(hvps))
     })
-              
-outpath <- paste0('/data/srlab/AMP_collab/lakshay-yakir/6.fine_types/out_ccaweights/', paste0(ct, collapse = ""), '_ccaweights.RDS')
+        
+outdir <- '/data/srlab/AMP_collab/lakshay-yakir/5.coarse_types/out_ccaweights/'
+dir.create(outdir, showWarnings = FALSE)
+outpath <- paste0(outdir, paste0(ct, collapse = ""), '_ccaweights.RDS')
 saveRDS(res_cca, outpath) 
               
               

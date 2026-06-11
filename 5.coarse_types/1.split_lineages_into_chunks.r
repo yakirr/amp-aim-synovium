@@ -14,22 +14,20 @@ max_mult <- as.numeric(args[3])
 ampp2_ref <- '/data/srlab/AMP_collab/AMP2_2023_seuratObj_galoz/AMPp2_seuratObj_allcells.202511.rds'
 sc <- readRDS(ampp2_ref)
 names(sc@meta.data)[1] <- 'sid'
-lineage_map = c("B_plasma" = "B_Plasma", 
-		"Endothelial" = "endothelial", 
-		"Stromal" = "stromal", 
-		"Myeloid" = "myeloid", 
-		"T_NK" = "T_NKcell")
-sc_lineage = unname(lineage_map[lineage])
-lineage_to_keep = sc$lineage == sc_lineage 
+lineage_to_keep = sc$lineage == lineage 
 sc <- subset(sc, cells = colnames(sc)[lineage_to_keep])    
 print(paste('Number of sc cells:', dim(sc)[2]))
 
-xen_path <- file.path('/data/srlab/AMP_collab/lakshay-yakir/4.lineages/out_rds/', 
+xen_path <- file.path('/data/srlab/AMP_collab/data/early_disease_synovium/xenium/combined/', 
                       cohort, 
                       'lineages', 
                       paste0(lineage, '.rds'))
-xen <- readRDS(xen_path)
+if (!file.exists(xen_path)) {
+  logmsg(paste0("ERROR: path not found: ", xen_path))
+  quit(save = "no", status = 1)
+}
 
+xen <- readRDS(xen_path)
 # Step 2: break Xenium lineage down into smaller chunks, and save each chunk 
 
 i <- 1

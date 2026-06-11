@@ -1,0 +1,11 @@
+{"ct":"B","lineage":"B_plasma","cohort":"EDP1-EDP2-ARB","cca_path":"","batch_vars":"cohort"}
+{"ct":"Plasma","lineage":"B_plasma","cohort":"EDP1-EDP2-ARB","cca_path":"/data/srlab/AMP_collab/lakshay-yakir/5.coarse_types/out_ccaweights/Plasma_ccaweights.RDS","batch_vars":"cohort"}
+{"ct":"Lymphatic endothelial","lineage":"Endothelial","cohort":"EDP1-EDP2-ARB","cca_path":"","batch_vars":"cohort"}
+{"ct":"Vascular endothelial","lineage":"Endothelial","cohort":"EDP1-EDP2-ARB","cca_path":"","batch_vars":"cohort"}
+{"ct":"Dendritic cell","lineage":"Myeloid","cohort":"EDP1-EDP2-ARB","cca_path":"","batch_vars":"cohort"}
+{"ct":"Macrophage","lineage":"Myeloid","cohort":"EDP1-EDP2-ARB","cca_path":"","batch_vars":"cohort"}
+{"ct":"Lining","lineage":"Stromal","cohort":"EDP1-EDP2-ARB","cca_path":"","batch_vars":"cohort"}
+{"ct":"Mural","lineage":"Stromal","cohort":"EDP1-EDP2-ARB","cca_path":"","batch_vars":"cohort"}
+{"ct":"Sublining","lineage":"Stromal","cohort":"EDP1-EDP2-ARB","cca_path":"","batch_vars":"cohort"}
+{"ct":"NK","lineage":"T_NK","cohort":"EDP1-EDP2-ARB","cca_path":"","batch_vars":"cohort"}
+{"ct":"T","lineage":"T_NK","cohort":"EDP1-EDP2-ARB","cca_path":"/data/srlab/AMP_collab/lakshay-yakir/5.coarse_types/out_ccaweights/T_ccaweights.RDS","batch_vars":"cohort"}

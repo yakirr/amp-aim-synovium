@@ -26,9 +26,9 @@ function split_lineage_into_chunks()
     fi
 cat << EOF | sbatch
 #!/bin/bash
-#SBATCH -D /data/srlab/AMP_collab/lakshay-yakir/4.lineages
-#SBATCH -o /data/srlab/AMP_collab/lakshay-yakir/4.lineages/slurm_logs/${cohort}_${lineage}_splitchunks.out
-#SBATCH -e /data/srlab/AMP_collab/lakshay-yakir/4.lineages/slurm_logs/${cohort}_${lineage}_splitchunks.err 
+#SBATCH -D /data/srlab/AMP_collab/lakshay-yakir/5.coarse_types
+#SBATCH -o /data/srlab/AMP_collab/lakshay-yakir/5.coarse_types/slurm_logs/${cohort}_${lineage}_splitchunks.out
+#SBATCH -e /data/srlab/AMP_collab/lakshay-yakir/5.coarse_types/slurm_logs/${cohort}_${lineage}_splitchunks.err 
 #SBATCH -J ${cohort}_${lineage}_splitchunks
 #SBATCH --time=${time}
 #SBATCH --mem=${mem}
@@ -43,16 +43,12 @@ echo "$lineage"
 echo "${mb} MB"
 echo "$mem"
 echo "$time"
-Rscript ./9.split_lineages_into_chunks.r "$lineage" "$cohort" "$max_mult" 
+Rscript ./1.split_lineages_into_chunks.r "$lineage" "$cohort" "$max_mult" 
 
 EOF
 }
 jq -r '[.lineage, .cohort, .max_mult] | @tsv' "$1" \
 | while IFS=$'\t' read -r lineage cohort max_mult
-do
-    #if [ ! -f "${outpath}" ]; then  
+do 
     split_lineage_into_chunks $lineage $cohort $max_mult    
-#else 
-    #	echo "Skipping ${ct} pipeline ${out} thresh ${gene_filter_thresh} iter ${iter} - output already exists" 
-    #fi
 done

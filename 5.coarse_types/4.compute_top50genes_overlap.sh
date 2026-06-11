@@ -1,5 +1,5 @@
 #!/bin/bash
-function reconstruct_full_ct_obj()
+function compute_top50genes_overlap()
 {
     local lineage=$1
     local cohort=$2
@@ -33,9 +33,9 @@ function reconstruct_full_ct_obj()
 cat << EOF | sbatch
 #!/bin/bash
 #SBATCH -D /data/srlab/AMP_collab/lakshay-yakir/5.coarse_types/ 
-#SBATCH -o /data/srlab/AMP_collab/lakshay-yakir/5.coarse_types/slurm_logs/${cohort}_${lineage}_combinecelltypes.out
-#SBATCH -e /data/srlab/AMP_collab/lakshay-yakir/5.coarse_types/slurm_logs/${cohort}_${lineage}_combinecelltypes.err 
-#SBATCH -J ${cohort}_${lineage}_combinecelltypes
+#SBATCH -o /data/srlab/AMP_collab/lakshay-yakir/5.coarse_types/slurm_logs/${cohort}_${lineage}_compute_top50genes.out
+#SBATCH -e /data/srlab/AMP_collab/lakshay-yakir/5.coarse_types/slurm_logs/${cohort}_${lineage}_compute_top50genes.err 
+#SBATCH -J ${cohort}_${lineage}_compute_top50genes
 #SBATCH --time=${time}
 #SBATCH --mem=${mem}
 #SBATCH -c 1
@@ -50,14 +50,14 @@ echo "${mb} MB"
 echo "$mem"
 echo "$time"
 
-Rscript ./3.combine_coarsetype_chunks.r "$lineage" "EDP1-EDP2-ARB" 
+Rscript ./4.compute_top50genes_overlap.r "$lineage" "EDP1-EDP2-ARB" 
 
 EOF
 }
 
-lineages=("B_plasma" "Myeloid" "Stromal" "T_NK" "Endothelial")
-#lineages=("B_plasma")
+#lineages=("B_plasma" "Myeloid" "Stromal" "T_NK" "Endothelial")
+lineages=("B_plasma")
 for lineage in ${lineages[@]}; do 
-	reconstruct_full_ct_obj "$lineage" "EDP1-EDP2-ARB"
+	compute_top50genes_overlap "$lineage" "EDP1-EDP2-ARB"
 done
 

@@ -184,7 +184,8 @@ BuildIntegratedReference <- function(
     hvgs,
     annotation_var,
     batch_vars = NULL, 
-    cca_weights = NULL
+    cca_weights = NULL, 
+    annotate = TRUE # Are you attempting to assign types in a later step? If not, mark FALSE 
 ) {
     normalization_target <- match.arg(normalization_target)
 
@@ -209,7 +210,9 @@ BuildIntegratedReference <- function(
     xen$modality <- "xen"
     sc$modality  <- "sc"
 
-    xen[[annotation_var]] <- NA_character_
+    if (annotate) {
+        xen[[annotation_var]] <- NA_character_
+    }
     
     if (!is.null(batch_vars)) {
         keep_cols <- c("sid", "modality", batch_vars, annotation_var)

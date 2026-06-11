@@ -52,14 +52,13 @@ echo "${mb} MB"
 echo "$mem"
 echo "$time"
 
-Rscript ./3.compute_top50genes_overlap.r "$ct" "EDP1-EDP2-ARB" 
+Rscript ./4.compute_top50genes_overlap.r "$ct" "EDP1-EDP2-ARB" 
 
 EOF
 }
 
 cts=("B" "Dendritic cell" "Lining" "Macrophage" "NK" "Plasma" "Sublining" "T" "Vascular endothelial")
 #cts="B"
-#cts=("B_plasma")
 
 for ct in "${cts[@]}"; do  
 	compute_top50genes_overlap "${ct}" "EDP1-EDP2-ARB"

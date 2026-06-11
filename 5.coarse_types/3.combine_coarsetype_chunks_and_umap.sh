@@ -2,31 +2,33 @@
 function umap_full_ct_obj()
 {
     local ct=$1
-    ct="${ct// /_}"
     local lineage=$2 
-    local xen_path=$3
-    local xen_path_quoted="'${xen_path}'"
-    local cohort=$4
-    local cca_path=$5
-    local batch_vars=$6
-    filesize=$(stat -c%s "$xen_path")
+    local cohort=$3
+    local cca_path=$4
+    local batch_vars=$5
+    
+    filesize=$(find "/data/srlab/AMP_collab/lakshay-yakir/5.coarse_types/out_rds/${cohort}/${lineage}/${ct}" \
+    -name "*labeltransfer.rds" -print0 \
+    | xargs -0 stat -c%s \
+    | awk '{sum += $1} END {print sum+0}')
     local mb=$((filesize / 1024 / 1024)) 
-    if [ $mb -lt 2000 ]; then
-	mem="250G"
+    if [ $mb -lt 200 ]; then
+	mem="30G"
+	time="00:30:00"
+    elif [ $mb -lt 500 ]; then 
+        mem="50G"
+	time="01:00:00"
+    elif [ $mb -lt 1000 ]; then 
+	mem="100G"
+	time="01:30:00"
+    elif [ $mb -lt 2000 ]; then 
+	mem="200G"
 	time="04:00:00"
-    elif [ $mb -lt 5000 ]; then 
-        mem="200G"
-	time="06:00:00"
-    elif [ $mb -lt 10000 ]; then 
-	mem="300G"
-	time="08:00:00"
-    elif [ $mb -lt 20000 ]; then 
-	mem="400G"
-	time="10:00:00"
     else 
-	mem="500G"
-	time="12:00:00"
+	mem="250G"
+	time="06:00:00"
     fi
+    ct="${ct// /_}"
     if [ "$CONDA_DEFAULT_ENV" != "amp_harmony" ]; then
    	echo "ERROR: wrong conda environment. Expected 'amp_harmony', got '$CONDA_DEFAULT_ENV'"
     	exit 1
@@ -49,11 +51,11 @@ echo "$ct"
 echo "${mb} MB"
 echo "$mem"
 echo "$time"
-Rscript ./4.umap_combined_coarsetype_obj.r "$ct" "$lineage" $xen_path_quoted "$cohort" "$cca_path" "$batch_vars"
+Rscript ./3.combine_coarsetype_chunks_and_umap.r "$ct" "$lineage" "$cohort" "$cca_path" "$batch_vars"
 EOF
 }
-jq -r '.ct, .lineage, .xen_path, .cohort, .cca_path, .batch_vars' "$1" \
-| while read -r ct && read -r lineage && read -r xen_path && read -r cohort && read -r cca_path && read -r batch_vars
+jq -r '.ct, .lineage, .cohort, .cca_path, .batch_vars' "$1" \
+| while read -r ct && read -r lineage && read -r cohort && read -r cca_path && read -r batch_vars
 do
-    umap_full_ct_obj "$ct" "$lineage" "$xen_path" "$cohort" "$cca_path" "$batch_vars"
+    umap_full_ct_obj "$ct" "$lineage" "$cohort" "$cca_path" "$batch_vars"
 done
