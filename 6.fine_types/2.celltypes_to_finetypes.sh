@@ -40,7 +40,7 @@ function major_celltypes_to_finetypes()
     fi
 cat << EOF | sbatch
 #!/bin/bash
-#SBATCH -D /data/srlab/AMP_collab/lakshay/notebooks
+#SBATCH -D /data/srlab/AMP_collab/lakshay-yakir/6.fine_types/
 #SBATCH -o /data/srlab/AMP_collab/lakshay-yakir/6.fine_types/slurm_logs/${cohort}_${ct}_${chunk}_majortypetofinetype.out
 #SBATCH -e /data/srlab/AMP_collab/lakshay-yakir/6.fine_types/slurm_logs/${cohort}_${ct}_${chunk}_majortypetofinetype.err
 #SBATCH -J ${cohort}_${ct}_${chunk}_majortypetofinetype
@@ -56,7 +56,7 @@ echo "$ct"
 echo "${mb} MB"
 echo "$mem"
 echo "$time"
-Rscript ./labeltransfer_celltypestofinetypes.r "$ct" $xen_path_escaped "$cohort" "$chunk" "$cca_path" "$batch_vars" 
+Rscript ./2.celltypes_to_finetypes.r "$ct" $xen_path_escaped "$cohort" "$chunk" "$cca_path" "$batch_vars" 
 EOF
 }
 jq -r '.ct, .xen_path, .cohort, .cca_path, .batch_vars' "$1" \

@@ -15,6 +15,8 @@ sc <- readRDS(ampp2_ref)
 names(sc@meta.data)[1] <- 'sid'
 sc <- subset(sc, cells = colnames(sc)[sc$celltypes.med == ct])
 
+ct_obj <- readRDS('/data/srlab/AMP_collab/lakshay-yakir/5.coarse_types/'
+
 basedir <- '/data/srlab/AMP_collab/lakshay-yakir/6.fine_types/'
 chunk_files <- list.files(file.path(basedir, 'out_rds', cohort, ct),
                           full.names  = TRUE,
