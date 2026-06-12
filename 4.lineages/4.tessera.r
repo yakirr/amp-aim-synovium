@@ -22,24 +22,25 @@ dir.create(rds_dir,    showWarnings = FALSE, recursive = TRUE)
 
 fast_merge_seurat <- function(seurat_list) {
     message(Sys.time(), " | Merging counts...")
-    counts_merged <- do.call(cbind, lapply(seurat_list, function(s) s[["RNA"]]$counts))
-
+    counts_merged <- do.call(cbind, lapply(seurat_list, function(s) s[["RNA"]]$counts))   
+    
     message(Sys.time(), " | Merging metadata...")
-    meta_merged <- bind_rows(lapply(seurat_list, function(s) s@meta.data))
-
+    meta_list <- lapply(seurat_list, function(s) s@meta.data)
+    meta_merged <- do.call(rbind, unname(meta_list))  # rbind preserves rownames; bind_rows does not
+    
     message(Sys.time(), " | Merging PCA...")
     pca_merged <- do.call(rbind, lapply(seurat_list, function(s) s[["pca"]]@cell.embeddings))
-
+    
     message(Sys.time(), " | Creating Seurat object...")
-    merged <- CreateSeuratObject(counts = counts_merged, meta.data = meta_merged)
+    meta_clean <- meta_merged[, !names(meta_merged) %in% "shape", drop = FALSE]
+    merged <- CreateSeuratObject(counts = counts_merged, meta.data = meta_clean)                                        
     merged[["pca"]] <- CreateDimReducObject(
         embeddings = pca_merged,
         key        = "PC_",
         assay      = "RNA"
     )
-
     message(Sys.time(), " | Done. ", ncol(merged), " cells, ", nrow(merged), " genes.")
-    return(merged)
+    return(list(seurat = merged, shapes = meta_merged[, "shape", drop = FALSE]))
 }
 
 # =============================================================================
@@ -105,7 +106,10 @@ saveRDS(merged_cell_meta, paste0(rds_dir, "/allcells_qc_harmumapclust_lineage[ce
 # =============================================================================
 
 message(Sys.time(), " | Merging tile Seurat objects...")
-tiles <- fast_merge_seurat(all_tiles)
+result     <- fast_merge_seurat(all_tiles)
+tiles      <- result$seurat
+tileshapes <- result$shapes
+saveRDS(tileshapes, paste0(rds_dir, "/allcells_qc_harmumapclust_lineage[tileshapes].rds"))
 
 set.seed(0)
 tiles <- Run_uwot_umap(tiles, reduction = 'pca', spread = 0.8, min_dist = 0.3)
