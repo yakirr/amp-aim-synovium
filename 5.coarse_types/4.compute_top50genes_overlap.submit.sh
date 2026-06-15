@@ -55,8 +55,8 @@ Rscript ./4.compute_top50genes_overlap.r "$lineage" "EDP1-EDP2-ARB"
 EOF
 }
 
-lineages=("B_plasma" "Myeloid" "Stromal" "T_NK" "Endothelial")
-#lineages=("B_plasma")
+#lineages=("B_plasma" "Myeloid" "Stromal" "T_NK" "Endothelial")
+lineages=("T_NK")
 for lineage in ${lineages[@]}; do 
 	compute_top50genes_overlap "$lineage" "EDP1-EDP2-ARB"
 done

@@ -113,7 +113,7 @@ saveRDS(percell_cts, file.path(out_dir, paste0(ct_for_seu_obj, '_', chunk, '_all
 
 print(paste(sum(xen$cluster_name == 'Untyped'), ct_for_seu_obj, 'cells did not receive fine cell type labels'))
 xen_untyped <- subset(xen, cells = colnames(xen)[xen$cluster_name == 'Untyped'])
-saveRDS(xen_untyped, file.path(out_dir, paste0(out_filename_stem, '_untyped_labeltransfer.rds')))
+saveRDS(xen_untyped, file.path(out_dir, paste0(out_filename_stem, '_untyped_postlabeltransfer.rds')))
 
 marker_corrs_dir <- file.path('/data/srlab/AMP_collab/lakshay-yakir/6.fine_types/out_analysis', cohort, ct_for_seu_obj)
 dir.create(marker_corrs_dir, showWarnings = FALSE, recursive = TRUE)

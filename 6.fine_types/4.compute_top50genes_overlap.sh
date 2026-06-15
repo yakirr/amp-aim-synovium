@@ -9,19 +9,19 @@ function compute_top50genes_overlap()
     local mb=$((filesize / 1024 / 1024)) 
 
     if [ $mb -lt 10000 ]; then
-	mem="30G"
+	mem="40G"
 	time="00:30:00"
     elif [ $mb -lt 15000 ]; then 
-        mem="40G"
+        mem="60G"
 	time="01:00:00"
     elif [ $mb -lt 20000 ]; then 
-	mem="50G"
+	mem="80G"
 	time="01:00:00"
     elif [ $mb -lt 30000 ]; then 
-	mem="75G"
+	mem="100G"
 	time="01:00:00"
     else 
-	mem="100G"
+	mem="120G"
 	time="02:00:00"
     fi
 
@@ -57,8 +57,8 @@ Rscript ./4.compute_top50genes_overlap.r "$ct" "EDP1-EDP2-ARB"
 EOF
 }
 
-cts=("B" "Dendritic cell" "Lining" "Macrophage" "NK" "Plasma" "Sublining" "T" "Vascular endothelial")
-#cts="B"
+#cts=("B" "Dendritic cell" "Lining" "Macrophage" "NK" "Plasma" "Sublining" "T" "Vascular endothelial")
+cts=("Vascular endothelial" "Lining" "Macrophage" "Sublining")
 
 for ct in "${cts[@]}"; do  
 	compute_top50genes_overlap "${ct}" "EDP1-EDP2-ARB"

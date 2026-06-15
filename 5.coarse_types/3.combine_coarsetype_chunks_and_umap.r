@@ -49,9 +49,9 @@ chunk_files <- list.files(file.path(basedir,
                           pattern = '_labeltransfer.rds', 
                           recursive = FALSE)
 chunks <- lapply(chunk_files, function(f) {readRDS(f)})
-lineage_obj <- merge(chunks[[1]], y = chunks[-1])
-lineage_obj <- JoinLayers(lineage_obj)
-lineage_obj <- subset(lineage_obj, features = rownames(lineage_obj)[rownames(lineage_obj) != 'CCL5']) # Bad probe
+ct_obj <- merge(chunks[[1]], y = chunks[-1])
+ct_obj <- JoinLayers(ct_obj)
+ct_obj <- subset(ct_obj, features = rownames(ct_obj)[rownames(ct_obj) != 'CCL5']) # Bad probe
 rm(chunks)
 gc()
 
@@ -64,13 +64,13 @@ if (!is.null(cca_path)) {
 
 # Step 2: Find DEGs/sid in AMPp2 ct, and build integrated reference 
 
-sc <- subset(sc, features = intersect(rownames(sc), rownames(lineage_obj)))
+sc <- subset(sc, features = intersect(rownames(sc), rownames(ct_obj)))
 sc <- NormalizeData(sc, normalization.method = "LogNormalize", scale.factor = median(sc$nCount_RNA), verbose = F)
 res <- FindHVGsFromGroups(sc, 'sid')
 hvgs <- res$hvgs
 
 merged <- BuildIntegratedReference(
-    lineage_obj,
+    ct_obj,
     sc,
     normalization_target = "mean_of_medians",
     hvgs,
@@ -79,7 +79,7 @@ merged <- BuildIntegratedReference(
     cca_weights = cca_weights, 
     annotate = FALSE
     )
-rm(lineage_obj)
+rm(ct_obj)
 gc()
 
 print('Reference built')

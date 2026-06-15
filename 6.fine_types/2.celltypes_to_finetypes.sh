@@ -5,7 +5,7 @@ function major_celltypes_to_finetypes()
     ct="${ct// /_}"
     local xen_path=$2
     local xen_path_escaped="${xen_path// /\\ }"
-    chunk=$(echo "$xen_path" | grep -oP '_\d+_' | grep -oP '\d+')
+    chunk=$(echo "$xen_path" | grep -oP '_chunk\d+_' | grep -oP '\d+')
     echo $chunk
     if [ -z "$chunk" ]; then
     	echo "ERROR: could not extract chunk number from xen_path: $xen_path"

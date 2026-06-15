@@ -15,24 +15,20 @@ names(sc@meta.data)[1] <- 'sid'
 sc <- subset(sc, cells = colnames(sc)[sc$lineage == lineage])
 cts <- unique(sc$celltypes.med)
 
-basedir <- '/data/srlab/AMP_collab/lakshay-yakir/5.coarse_types/'
-process_ct_objs <- function(ct) {
-    xen_obj <- file.path(basedir, 'out_rds', cohort, lineage, ct, paste0(ct, "_allcells_coarsetypes_umap.rds"))
-    xen_obj <- readRDS(xen_obj)
-    res <- CreateSeuratObject(
-        counts = xen_obj[['RNA']]$counts, 
-        meta = xen_obj@meta.data
-        )
-    return(res)
-}
+lineage_obj_path <- file.path('/data/srlab/AMP_collab/data/early_disease_synovium/xenium/combined/', 
+                              cohort, 
+                              'lineages', 
+                              paste0(lineage, '.rds'))
+lineage_obj <- readRDS(lineage_obj_path)
 
-lineage_obj <- lapply(cts, function(ct) {process_ct_objs(ct)})
-if (length(lineage_obj) > 1) {
-    lineage_obj <- merge(lineage_obj[[1]], y = lineage_obj[-1])
-    lineage_obj <- JoinLayers(lineage_obj)
-} else {
-    lineage_obj <- lineage_obj[[1]]
-}
+basedir <- '/data/srlab/AMP_collab/lakshay-yakir/5.coarse_types/'
+coarsetype_vectors <- file.path(basedir, 'out_rds', cohort, lineage, cts, paste0(cts, '_allcells_coarsetypesvector.rds')) 
+coarsetype_vectors <- unlist(lapply(coarsetype_vectors, readRDS))
+names(coarsetype_vectors) <- gsub("^xen_", "", names(coarsetype_vectors))
+
+coarsetypes <- setNames(rep('Untyped', ncol(lineage_obj)), colnames(lineage_obj))
+coarsetypes[names(coarsetype_vectors)] = coarsetype_vectors 
+lineage_obj$celltypes.med <- coarsetypes 
 
 # ── Step 1: Restrict both objects to Xenium genes ─────────────────────────────
 
@@ -60,7 +56,7 @@ xen_auc    <- presto::wilcoxauc(xen_expr, xen_groups)
 
 out_dir <- file.path(basedir, 'out_analysis', cohort, lineage)
 dir.create(out_dir, recursive = TRUE, showWarnings = FALSE)
-saveRDS(xen_auc, file.path(out_dir, paste0(lineage, "_xen_wilcoxauc.rds")))
+saveRDS(xen_auc, file.path(out_dir, paste0(lineage, "_xen_wilcoxauc_new.rds")))
 logmsg("Saved Xenium presto output.")
 
 # ── Step 4: wilcoxauc on sc reference object ───────────────────────────────────
@@ -69,10 +65,36 @@ sc_expr   <- GetAssayData(sc_sub, assay = DefaultAssay(sc_sub), layer = "data")
 sc_groups <- sc_sub[["celltypes.med"]][, 1]
 sc_auc    <- presto::wilcoxauc(sc_expr, sc_groups)
 
-saveRDS(sc_auc, file.path(out_dir, paste0(lineage, "_sc_wilcoxauc.rds")))
+saveRDS(sc_auc, file.path(out_dir, paste0(lineage, "_sc_wilcoxauc_new.rds")))
 logmsg("Saved sc reference presto output.")
 
-# ── Step 5: Compute marker correlations ────────────────────────────────────────
+# ── Step 5: save # of overlapping marker genes ─────────────────────────────────
+
+top_ct_markers <- function(df, ct, max_rank = 50) {
+    df %>% 
+        filter(group == ct) %>% 
+        arrange(desc(logFC)) %>% 
+        mutate(rank = row_number()) %>% 
+        filter(rank <= max_rank)
+}
+
+for (ct in unique(sc_sub$celltypes.med)) {
+    xen_markers <- top_ct_markers(xen_auc, ct)
+    sc_markers <- top_ct_markers(sc_auc, ct)
+    common_genes <- intersect(xen_markers$feature, sc_markers$feature)
+    
+    xen_markers %>% 
+        filter(feature %in% common_genes) %>% 
+        write.csv(file.path(out_dir, paste0(ct, "_overlappingmarkers_xenlogFCs_new.csv")), row.names = FALSE)
+    
+    sc_markers %>% 
+        filter(feature %in% common_genes) %>% 
+        write.csv(file.path(out_dir, paste0(ct, "_overlappingmarkers_sclogFCs_new.csv")), row.names = FALSE)
+    
+    logmsg(paste(length(common_genes), "genes overlap between Xenium and AMPp2", ct, "cells"))
+}
+
+# ── Step 6: Compute marker correlations ────────────────────────────────────────
 
 res <- CompareMarkerCorrelations(xen_sub, 
                           sc_sub, 
@@ -84,15 +106,15 @@ res <- CompareMarkerCorrelations(xen_sub,
                           fontsize = 25, 
                           show = FALSE, 
                           save_path = file.path(basedir, 'diagnostic_plots', cohort, lineage, 
-                                                       paste0(lineage, '_allcells_marker_correlations_labeltransfer.png')))
+                                                       paste0(lineage, '_allcells_marker_correlations_labeltransfer_new.png')))
 
-saveRDS(res, file.path(out_dir, paste0(lineage, "_tomajorcelltypes_marker_correlations_labeltransfer.RDS")))
+saveRDS(res, file.path(out_dir, paste0(lineage, "_tomajorcelltypes_marker_correlations_labeltransfer_new.RDS")))
 
 xen_mat <- xen_auc %>% 
     group_by(group) %>% 
     arrange(desc(logFC), .by_group = TRUE) %>% 
     mutate(rank = row_number()) %>% 
     filter(rank < 11) 
-saveRDS(xen_mat, file.path(out_dir, paste0(lineage, "_top10_markergenes_percelltype.RDS")))
+write.csv(xen_mat, file.path(out_dir, paste0(lineage, "_top10_markergenes_percelltype_new.csv")))
 
 logmsg("Saved marker correlations.")

@@ -108,6 +108,9 @@ for (ct in unique(xen$celltypes.med)) {
     logmsg(paste(length(colnames(xen_sub)), 'cells were typed as', ct))
     saveRDS(xen_sub, 
             file.path(out_dir, ct, paste0(ct, "_", chunk, '_labeltransfer.rds')))
+    
+    percell_cts <- setNames(xen_sub$celltypes.med, rownames(xen_sub@meta.data))
+    saveRDS(percell_cts, file.path(out_dir, ct, paste0(ct, '_', chunk, '_coarsetypesvector.rds')))
 }
 
 print(paste(sum(xen$celltypes.med == 'Untyped'), lineage, 'cells did not receive major cell type labels'))

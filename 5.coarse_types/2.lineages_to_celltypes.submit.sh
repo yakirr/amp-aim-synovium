@@ -39,6 +39,7 @@ cat << EOF | sbatch
 #SBATCH --time=${time}
 #SBATCH --mem=${mem}
 #SBATCH -c 1
+#SBATCH -x erishpc-compute-037 
 #SBATCH -p normal,bigmem,long
 #SBATCH --mail-type=end
 #SBATCH --mail-user=$EMAIL

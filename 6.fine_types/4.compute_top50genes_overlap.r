@@ -15,36 +15,37 @@ sc <- readRDS(ampp2_ref)
 names(sc@meta.data)[1] <- 'sid'
 sc <- subset(sc, cells = colnames(sc)[sc$celltypes.med == ct])
 
-ct_obj <- readRDS('/data/srlab/AMP_collab/lakshay-yakir/5.coarse_types/'
+ct_obj_path <- file.path('/data/srlab/AMP_collab/data/early_disease_synovium/xenium/combined/', 
+                          cohort, 
+                          'coarsetypes', 
+                          paste0(ct, '.rds'))
+ct_obj <- readRDS(ct_obj_path)
 
 basedir <- '/data/srlab/AMP_collab/lakshay-yakir/6.fine_types/'
-chunk_files <- list.files(file.path(basedir, 'out_rds', cohort, ct),
-                          full.names  = TRUE,
-                          recursive   = FALSE,
-                          pattern     = paste0(ct, "_\\d+_labeltransfer.rds"))
-logmsg("Chunk files found:", length(chunk_files))
-chunks  <- lapply(chunk_files, readRDS)
-if (length(chunks) == 1) {
-    ct_obj <- chunks[[1]]
-} else {
-    ct_obj <- merge(chunks[[1]], y = chunks[-1])
-}
-ct_obj  <- JoinLayers(ct_obj)
-ct_obj <- NormalizeData(ct_obj, normalization.method = "LogNormalize", scale.factor = median(ct_obj$nCount_RNA))
+finetype_vector <- file.path(basedir, 'out_rds', cohort, ct, paste0(ct, '_allcells_finetypesvector.rds')) 
+finetype_vector <- readRDS(finetype_vector)
 
-# ── Step 1: Compute HVGs from sc ──────────────────────────────────────────────
-logmsg("Computing HVGs from sc reference...")
-hvg_res <- FindHVGsFromGroups(sc, group_var = 'cluster_name')
-hvgs    <- hvg_res$hvgs
+finetypes <- setNames(rep('Untyped', ncol(ct_obj)), colnames(ct_obj))
+finetypes[names(finetype_vector)] = finetype_vector 
+ct_obj$cluster_name <- finetypes
 
+# ── Step 1: Restrict both objects to Xenium genes ─────────────────────────────
 
-# ── Step 2: Restrict both objects to HVGs ∩ Xenium genes ──────────────────────
+logmsg("Restricting to Xenium genes...")
+
 xen_genes    <- rownames(ct_obj)
-shared_genes <- intersect(hvgs, xen_genes)
-logmsg("Shared genes (HVGs ∩ Xenium panel):", length(shared_genes))
+shared_genes <- intersect(rownames(sc), xen_genes)
+logmsg("Shared genes (SC ∩ Xenium panel):", length(shared_genes))
 
 sc_sub  <- sc[shared_genes, ]
 xen_sub <- ct_obj[shared_genes, ]
+
+# ── Step 2: Normalize to the mean of median total gene expression ─────────────
+
+norm_constant <- mean(c(sc_sub$nCount_RNA, xen_sub$nCount_RNA))
+sc_sub <- NormalizeData(sc_sub, normalization.method = 'LogNormalize', scale.factor = norm_constant)
+xen_sub <- NormalizeData(xen_sub, normalization.method = 'LogNormalize', scale.factor = norm_constant)
+logmsg("Normalized to mean of median gene expression.")
 
 # ── Step 3: wilcoxauc on Xenium object ────────────────────────────────────────
 logmsg("Running presto::wilcoxauc on Xenium object...")
@@ -66,20 +67,53 @@ sc_auc    <- presto::wilcoxauc(sc_expr, sc_groups)
 saveRDS(sc_auc, file.path(out_dir, paste0(ct, "_sc_wilcoxauc.rds")))
 logmsg("Saved sc reference presto output.")
 
-saveRDS(ct_obj, file.path(basedir, 'out_rds', cohort, ct, paste0(ct, '_allcells_finetypes.rds')))
+# ── Step 5: save # of overlapping marker genes ─────────────────────────────────
 
-# ── Step 5: wilcoxauc on sc reference object ───────────────────────────────────
-logmsg("Computing marker correlations...")                 
-corrs <- CompareMarkerCorrelations(xen_sub, 
-                                   sc_sub, 
-                                   'cluster_name', 
-                                   bicluster = FALSE, 
-                                   markers.xen = xen_auc, 
-                                   markers.sc = sc_auc,   
-                                   hvgs_only = FALSE, 
-                                   pheatmap_breaks = seq(-1, 1, length.out = 101), 
-                                   fontsize = 12, 
-                                   show = TRUE, 
-                                   save_path = NULL)
+top_ct_markers <- function(df, ct, max_rank = 50) {
+    df %>% 
+        filter(group == ct) %>% 
+        arrange(desc(logFC)) %>% 
+        mutate(rank = row_number()) %>% 
+        filter(rank <= max_rank)
+}
 
-saveRDS(corrs, file.path(basedir, 'out_analysis', cohort, ct, paste0(ct, '_tofinetypes_marker_correlations_labeltransfer.RDS')))
+for (cs in unique(sc_sub$cluster_name)) {
+    xen_markers <- top_ct_markers(xen_auc, cs)
+    sc_markers <- top_ct_markers(sc_auc, cs)
+    common_genes <- intersect(xen_markers$feature, sc_markers$feature)
+    
+    xen_markers %>% 
+        filter(feature %in% common_genes) %>% 
+        write.csv(file.path(out_dir, paste0(ct, "_overlappingmarkers_xenlogFCs_new.csv")), row.names = FALSE)
+    
+    sc_markers %>% 
+        filter(feature %in% common_genes) %>% 
+        write.csv(file.path(out_dir, paste0(ct, "_overlappingmarkers_sclogFCs_new.csv")), row.names = FALSE)
+    
+    logmsg(paste(length(common_genes), "genes overlap between Xenium and AMPp2", cs, "cells"))
+}
+
+# ── Step 5: Compute marker correlations ────────────────────────────────────────
+
+res <- CompareMarkerCorrelations(xen_sub, 
+                          sc_sub, 
+                          'cluster_name', 
+                          bicluster = F, 
+                          markers.xen = xen_auc, 
+                          markers.sc = sc_auc, 
+                          pheatmap_breaks = seq(-1, 1, length.out = 101), 
+                          fontsize = 25, 
+                          show = FALSE, 
+                          save_path = file.path(basedir, 'diagnostic_plots', cohort, ct, 
+                                                       paste0(ct, '_allcells_marker_correlations_labeltransfer.png')))
+
+saveRDS(res, file.path(out_dir, paste0(ct, "_tofinetypes_marker_correlations_labeltransfer.RDS")))
+
+xen_mat <- xen_auc %>% 
+    group_by(group) %>% 
+    arrange(desc(logFC), .by_group = TRUE) %>% 
+    mutate(rank = row_number()) %>% 
+    filter(rank < 11) 
+saveRDS(xen_mat, file.path(out_dir, paste0(ct, "_top10_markergenes_percellstate.csv")))
+
+logmsg("Saved marker correlations.")

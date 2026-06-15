@@ -1,0 +1,9 @@
+{"ct":"B","cohort":"EDP1-EDP2-ARB","max_mult":1.25}
+{"ct":"Dendritic cell","cohort":"EDP1-EDP2-ARB","max_mult":1.25}
+{"ct":"Lining","cohort":"EDP1-EDP2-ARB","max_mult":1.25}
+{"ct":"Vascular endothelial","cohort":"EDP1-EDP2-ARB","max_mult":1.25}
+{"ct":"Macrophage","cohort":"EDP1-EDP2-ARB","max_mult":1.25}
+{"ct":"NK","cohort":"EDP1-EDP2-ARB","max_mult":1.25}
+{"ct":"Plasma","cohort":"EDP1-EDP2-ARB","max_mult":1.25}
+{"ct":"Sublining","cohort":"EDP1-EDP2-ARB","max_mult":1.25}
+{"ct":"T","cohort":"EDP1-EDP2-ARB","max_mult":1.25}
