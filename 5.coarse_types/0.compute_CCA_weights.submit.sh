@@ -30,7 +30,6 @@ EOF
 }
 
 celltypes=("B" "Plasma" "T") 
-#lineages=("B_plasma")
 for ct in ${celltypes[@]}; do 
 	compute_ct_cca "$ct"
 done
