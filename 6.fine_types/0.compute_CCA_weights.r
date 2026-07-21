@@ -2,11 +2,9 @@ suppressPackageStartupMessages({
     library(CCA)
     library(tidyverse)
     library(Seurat)
-    source('/data/srlab/AMP_collab/lakshay/R/utils.R') 
+    library(Matrix)
     source('/data/srlab/AMP_collab/lakshay-yakir/_common/typing_utils.r')
 })
-
-start_upR()
 
 # Step 1: read in data and subset to cell type of interest 
 args = commandArgs(trailingOnly = TRUE)
